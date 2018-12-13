@@ -7,12 +7,11 @@ codeunit 50100 "EventSubscribers"
         AutoEmailLogEmail: Codeunit "SIMC AEM Log Email Meth";
         AutoEmailLog: Record "SIMC Auto Email Log";
     begin
-        // We log email into auto email log.
-        AutoEmailLogEmail.LogEmail(AutoEmailLog."Document Type"::Custom, 'DEPOSIT', PostedDepositHeader."No.", true);
+        AutoEmailLogEmail.LogEmail(AutoEmailLog."Document Type"::Deposit, PostedDepositHeader."No.", false);
     end;
 
     [EventSubscriber(ObjectType::Codeunit, Codeunit::"SIMC AEM Log Email Meth", 'OnBeforeLogSpecialDocType', '', true, true)]
-    local procedure OnBeforeLogSpecialDoc(SpecialDocType: Text[100];
+    local procedure OnBeforeLogSpecialDoc(DocType: Enum "SIMC AEM Document Type";
                                           var DocNo: code[20];
                                           var EmailTo: Text[100];
                                           var ccEmailTo: Text[100];
@@ -23,8 +22,7 @@ codeunit 50100 "EventSubscribers"
     var
         PostedDepositHeader: Record "Posted Deposit Header";
     begin
-        AutoEmailLog."Custom Document Type" := SpecialDocType;
-        if SpecialDocType = 'DEPOSIT' then begin
+        if DocType = DocType::Deposit then begin
             PostedDepositHeader.Get(DocNo);
             EmailTo := 'treasury@company.com';
             ccEmailTo := '';
@@ -34,11 +32,11 @@ codeunit 50100 "EventSubscribers"
             else
                 AutoEmailLog.Subject := StrSubstNo(EmailTemplate."Email Subject", PostedDepositHeader."No.", PostedDepositHeader."Total Deposit Amount");
         end;
-    end;
 
+    end;
     // Here we load all that's needed to log this document as an attachment
     [EventSubscriber(ObjectType::Codeunit, Codeunit::"SIMC AEM Print2PDF Meth", 'OnBeforeDocumentEmailed', '', true, true)]
-    local procedure OnProcessDocument(SpecialDocType: Text[20];
+    local procedure OnProcessDocument(DocType: Enum "SIMC AEM Document Type";
                                       var RecRef: RecordRef;
                                       var AutoEmailLog: Record "SIMC Auto Email Log";
                                       var EmailTemplate: Record "SIMC AEM Email Template";
@@ -48,15 +46,13 @@ codeunit 50100 "EventSubscribers"
     var
         PostedDepositHeader: Record "Posted Deposit Header";
     begin
-        if SpecialDocType = 'DEPOSIT' then begin
+        if DocType = Doctype::Deposit then begin
             PostedDepositHeader.Get(AutoEmailLog."Document No.");
             PostedDepositHeader.SetRange("No.", AutoEmailLog."Document No.");
             RecRef.GETTABLE(PostedDepositHeader);
-            AutoEmailLog."Custom Document Type" := SpecialDocType;
             DocumentName := StrSubstNo('Deposit %1.pdf', AutoEmailLog."Document No.", PostedDepositHeader."Total Deposit Amount");
             MergeField1 := AutoEmailLog."Document No.";
             MergeField2 := format(PostedDepositHeader."Total Deposit Amount", 0, '<Precision,2:2><Standard Format,0>');
         end;
     end;
-
 }
